@@ -1,0 +1,10 @@
+# Fakten-Register der KI-Werkstatt
+# Hier stehen alle Angaben, die veralten können (Preise, Versionen, Namen von Menüs usw.).
+# Jeder Eintrag hat einen Wert, einen Stand (Datum der Prüfung) und eine Quelle.
+#
+# Vorlage für einen Eintrag (zum Kopieren):
+#
+# beispiel-angabe:
+#   wert: "Hier steht die Angabe"
+#   stand: 2026-10-29
+#   quelle: "https://beispiel.de/seite"
