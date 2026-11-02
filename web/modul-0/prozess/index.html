@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Modul 0 Prozessablauf</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: Schwimmbahnen-Raster – Zeilen = Akteure, Spalten = Missionen; nummerierte Schritt-Chips, verbunden durch eine SVG-Ablauflinie; Detailfeld unten */
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --ink:#18202e; --muted:#5a6578; --line:#d4dbe6; --accent:#1f4fd1;
+  --r-du:#c2384f; --r-du-s:#fbe6ea; --r-code:#1f4fd1; --r-code-s:#e3eafc; --r-git:#e5532d; --r-git-s:#fde9e2; --r-gh:#24292f; --r-gh-s:#eceef1;
+  --path:#8a94a6;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10141c; --surface:#181e29; --ink:#e7ebf2; --muted:#9aa5b8; --line:#2f3a4d; --accent:#7ea2ff;
+  --r-du:#ff7f93; --r-du-s:#3b1a21; --r-code:#7ea2ff; --r-code-s:#1d2a4a; --r-git:#ff8a66; --r-git-s:#3a1f15; --r-gh:#c9d1d9; --r-gh-s:#252c38; --path:#6b7689; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10141c; --surface:#181e29; --ink:#e7ebf2; --muted:#9aa5b8; --line:#2f3a4d; --accent:#7ea2ff;
+  --r-du:#ff7f93; --r-du-s:#3b1a21; --r-code:#7ea2ff; --r-code-s:#1d2a4a; --r-git:#ff8a66; --r-git-s:#3a1f15; --r-gh:#c9d1d9; --r-gh-s:#252c38; --path:#6b7689; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.35}
+.wrap{max-width:1380px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:16px}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(1.6rem,3.6vw,2.4rem);margin:0;line-height:1.1;text-wrap:balance}
+h2{font-family:var(--f-display);font-weight:800;font-size:1.15rem;margin:0}
+p{margin:0}
+.sub{color:var(--muted);max-width:80ch}
+.eyebrow{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.scroll{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.board{position:relative;display:grid;grid-template-columns:132px repeat(7,minmax(150px,1fr));min-width:1220px}
+.board svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.mh{padding:10px 8px;border-bottom:1px solid var(--line);border-left:1px solid var(--line);display:grid;gap:2px;align-content:start;background:var(--surface)}
+.mh .mn{font-family:var(--f-mono);font-size:.7rem;color:var(--muted)}
+.mh b{font-family:var(--f-display);font-size:.98rem;line-height:1.15}
+.corner{border-bottom:1px solid var(--line);padding:10px 12px;font-size:.78rem;color:var(--muted);display:flex;align-items:end}
+.rl{padding:12px;border-bottom:1px solid var(--line);background:var(--rs);display:grid;align-content:center;gap:2px;border-left:5px solid var(--rc)}
+.rl b{font-family:var(--f-display);font-size:1rem;color:var(--rc)}
+.rl span{font-size:.76rem;color:var(--muted)}
+.cell{border-bottom:1px solid var(--line);border-left:1px solid var(--line);padding:10px 8px;display:flex;flex-direction:column;gap:10px;justify-content:center;min-height:96px}
+.board .row-last{border-bottom:0}
+.chip{position:relative;z-index:1;font:inherit;text-align:left;cursor:pointer;display:grid;grid-template-columns:auto 1fr;gap:7px;align-items:start;background:var(--surface);border:1.5px solid var(--rc);border-radius:10px;padding:6px 8px;color:var(--ink);font-size:.84rem;line-height:1.2}
+.chip .no{width:22px;height:22px;border-radius:50%;background:var(--rc);color:var(--surface);display:grid;place-items:center;font-family:var(--f-mono);font-size:.7rem;font-weight:500}
+.chip .tx b{display:block;font-weight:700}
+.chip .tx{min-width:0}
+.chip .tx code{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);overflow-wrap:break-word;hyphens:auto}
+.detail[hidden]{display:none}
+.chip:hover{background:var(--rs)}
+.chip[aria-pressed="true"]{background:var(--rs);box-shadow:0 0 0 3px var(--rc)}
+.chip.key{border-width:2.5px}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ctrl button{font:inherit;font-size:.86rem;font-weight:700;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:6px 12px;cursor:pointer}
+.ctrl button.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.ctrl .pos{font-family:var(--f-mono);font-size:.8rem;color:var(--muted)}
+.detail{position:sticky;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:3;background:var(--surface);border:2px solid var(--rc,var(--ink));border-radius:14px;padding:12px 16px;display:grid;gap:6px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.detail .dh{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between}
+.detail .who{font-family:var(--f-mono);font-size:.74rem;color:var(--rc)}
+.detail ul{margin:0;padding-left:1.2em;display:grid;gap:3px;max-width:85ch}
+.detail .x{font:inherit;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;padding:2px 9px;cursor:pointer}
+.cmds{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-family:var(--f-mono);font-size:.8rem}
+.cmds span{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:3px 8px}
+.cmds i{font-style:normal;color:var(--muted)}
+.keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.k{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:.88rem;display:grid;gap:2px}
+.k b{font-family:var(--f-display);font-size:1rem}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+@media print{.ctrl,.detail{display:none!important}}
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+<div class="wrap">
+ <header style="display:grid;gap:6px">
+  <p class="eyebrow">KI-Werkstatt · Modul 0 · Prozessablauf · Stand 29. Oktober 2026</p>
+  <h1>Modul 0: Wer macht was, in welcher Reihenfolge?</h1>
+  <p class="sub">Zeilen zeigen, wer handelt, Spalten die sieben Missionen. Die Linie verbindet alle Schritte in der Reihenfolge, in der Modul 0 durchgespielt wurde. Klicke auf einen Schritt oder gehe mit „Weiter“ Schritt für Schritt durch.</p>
+ </header>
+
+ <div class="ctrl"><button type="button" id="prev">← Zurück</button><button type="button" class="primary" id="next">Ablauf starten →</button><span class="pos" id="pos"></span></div>
+
+ <div class="scroll"><div class="board" id="board"></div></div>
+
+ <section style="display:grid;gap:8px">
+  <h2>Der Git-Kreislauf aus Modul 0</h2>
+  <div class="cmds"><span>git clone</span><i>einmalig →</i><span>Datei ändern</span><i>→</i><span>git status</span><i>→</i><span>git add</span><i>→</i><span>git commit</span><i>→</i><span>git push</span><i>· zu Beginn jeder Sitzung:</i><span>git pull</span></div>
+ </section>
+
+ <section style="display:grid;gap:8px">
+  <h2>Wo der Mensch gebraucht wird</h2>
+  <div class="keys">
+   <div class="k"><b>Entscheiden</b>Owner, Name, Sichtbarkeit, Lizenz: Das legt nur Wilfried fest.</div>
+   <div class="k"><b>Freigeben</b>Jeder Befehl und jede Datei: „Einmal erlauben“ statt „Immer erlauben“.</div>
+   <div class="k"><b>Pläne anpassen</b>Claude schlägt vor, Wilfried ändert („Commit noch nicht“).</div>
+   <div class="k"><b>Anmelden</b>Zugangsdaten nur im offiziellen Fenster oder Browser, nie im Chat.</div>
+   <div class="k"><b>Prüfen</b>Ergebnis auf GitHub und im Explorer kontrollieren, Verständnisfragen beantworten.</div>
+  </div>
+ </section>
+
+ <div class="detail" id="detail" hidden aria-live="polite"></div>
+</div>
+
+<script>
+const ROLES=[
+ {k:"du",n:"Wilfried",s:"Browser, Explorer, Claude-App",c:"--r-du",cs:"--r-du-s"},
+ {k:"code",n:"Claude Code",s:"Code-Tab, Modus Manuell",c:"--r-code",cs:"--r-code-s"},
+ {k:"git",n:"Git",s:"auf dem Rechner",c:"--r-git",cs:"--r-git-s"},
+ {k:"gh",n:"GitHub",s:"Archiv im Internet",c:"--r-gh",cs:"--r-gh-s"}
+];
+const MIS=["Landkarte","Werkzeuge","Repository","Klonen","CLAUDE.md","Ordnerstruktur","Commit und Push"];
+// [Mission(1-7), Rolle, Titel, Befehl/Detailzeile, [Erklärungen], Schlüsselschritt]
+const S=[
+ [1,"du","Landkarte ansehen","Rechner → GitHub → Webseite",["Drei Orte: Werkstatt, Archiv, Schaufenster","Vier Arbeitsplätze: Browser, Desktop, CLI, Cloud"]],
+ [1,"du","Begriffe lernen","Repository, Commit, Push, Clone",["Wendekarten und Sortierspiel","Neu dazugekommen: Vormerken (add)"]],
+ [2,"du","Werkzeuge installieren","Claude-App, Git",["Claude-Desktop-App mit Abo ab Pro","Git für Windows mit Standardeinstellungen"]],
+ [2,"du","Modus „Manuell“","unten rechts im Code-Tab",["Claude fragt vor jeder Änderung","Gilt nur für die aktuelle Sitzung"],1],
+ [2,"code","Werkzeuge prüfen","git --version",["Erster Befehl mit Freigabe-Frage","„Einmal erlauben“ statt „Immer erlauben“"]],
+ [2,"git","Name und E-Mail","git config --global",["Wilfried Ifland, wilfried.ifland@gmail.com","Steht später in jedem Commit"]],
+ [3,"du","Formular ausfüllen","github.com/new",["Owner learningfactory-io, Name ki-werkstatt","Beschreibung, README an"],1],
+ [3,"gh","Repository entsteht","Initial commit",["README.md und LICENSE","Erster Speicherpunkt 5dc9910"]],
+ [3,"gh","Lizenz anpassen","Alle Rechte vorbehalten",["Im Browser bearbeitet und gespeichert","Zweiter Speicherpunkt 84eac62"]],
+ [4,"du","Projekte-Ordner","C:\\Users\\wilfr\\Projekte",["Nicht in OneDrive","Neue Sitzung in diesem Ordner"]],
+ [4,"code","Klonen","git clone …/ki-werkstatt",["Öffentliches Repository: keine Anmeldung nötig","Erklärung vor dem Befehl"]],
+ [4,"git","Lokale Kopie","Projekte\\ki-werkstatt",["Mit ganzer Versionsgeschichte","Ab jetzt: Sitzung immer hier"]],
+ [4,"code","Neuesten Stand holen","git pull",["„Already up to date“","Gewohnheit zu Beginn jeder Sitzung"]],
+ [5,"code","CLAUDE.md schreiben","+29 Zeilen",["Vorschau mit Pfad und grünem Inhalt","Freigabe durch Wilfried"]],
+ [5,"du","Freigeben und antworten","Einmal erlauben · „Noch nicht“",["Verständnisfrage beantwortet","Commit bewusst verschoben"],1],
+ [5,"code","Neue Sitzung: liest CLAUDE.md","„Gelesen CLAUDE.md“",["Verständnistest bestanden","Lernmodus und Regeln wirken von allein"]],
+ [5,"code","Eigene Regel ergänzen","„bearbeiten“ statt „schreiben“",["Weiße Zeile Kontext, grüne Zeile neu","Befehle vorher in einem Satz erklären"]],
+ [6,"code","Plan vorschlagen","Ordner, fakten.yml, .gitkeep",["Claude wartet auf OK","Erklärt, warum Platzhalter nötig sind"]],
+ [6,"du","Plan anpassen","README ergänzen, kein Commit",["Mensch steuert den Plan","Punkt 4 gestrichen"],1],
+ [6,"code","Struktur anlegen","inhalt/ · img/ · dateien/ · vorlagen/",["fakten.yml mit Kommentaren (#)","Git zählt nur Dateien, keine Ordner"]],
+ [7,"code","Änderungen ansehen","git status",["modified, untracked, ahead, clean","Begriffe in einfachen Worten erklärt"]],
+ [7,"git","Vormerken","git add",["Einkaufskorb: sieben Dateien","LF/CRLF-Warnungen sind harmlos"]],
+ [7,"git","Speicherpunkt","git commit · b98d38b",["„Ordnerstruktur, Fakten-Vorlage und Arbeitsanweisung angelegt“","Co-Authored-By: Claude"]],
+ [7,"code","Hochladen","git push",["Nur auf ausdrücklichen Auftrag","Anmeldung über Git Credential Manager, falls nötig"],1],
+ [7,"gh","Im Archiv angekommen","3 Commits",["Autor, Dateien, eigene Regel geprüft","Rechner und GitHub sind gleich"]],
+ [7,"du","Prüfen und abschließen","Abschlussprüfung",["Kontrolle im Browser","Werkstatt-Ausweis 🏆"],1]
+];
+
+/* Raster bauen */
+const board=document.getElementById("board");
+let h=`<div class="corner">Wer ↓ · Mission →</div>`+MIS.map((m,i)=>`<div class="mh"><span class="mn">Mission ${i+1}</span><b>${m}</b></div>`).join("");
+ROLES.forEach((r,ri)=>{const last=ri===ROLES.length-1?" row-last":"";
+ h+=`<div class="rl${last}" style="--rc:var(${r.c});--rs:var(${r.cs})"><b>${r.n}</b><span>${r.s}</span></div>`;
+ for(let m=1;m<=7;m++){h+=`<div class="cell${last}">${S.map((s,i)=>s[0]===m&&s[1]===r.k?`<button type="button" class="chip ${s[5]?"key":""}" data-i="${i}" style="--rc:var(${r.c});--rs:var(${r.cs})" aria-pressed="false"><span class="no">${i+1}</span><span class="tx"><b>${s[2]}</b><code>${s[3]}</code></span></button>`:"").join("")}</div>`;}
+});
+board.innerHTML=h+`<svg id="path" aria-hidden="true"></svg>`;
+
+/* Ablauflinie */
+function draw(){const svg=document.getElementById("path"),br=board.getBoundingClientRect();
+ svg.setAttribute("viewBox",`0 0 ${br.width} ${br.height}`);
+ const pts=S.map((_,i)=>{const r=board.querySelector(`.chip[data-i="${i}"] .no`).getBoundingClientRect();return [r.left-br.left+r.width/2,r.top-br.top+r.height/2]});
+ let d=`M${pts[0][0]},${pts[0][1]}`;for(let i=1;i<pts.length;i++){const [x0,y0]=pts[i-1],[x1,y1]=pts[i];const mx=(x0+x1)/2;d+=` C${mx},${y0} ${mx},${y1} ${x1},${y1}`;}
+ svg.innerHTML=`<path d="${d}" fill="none" stroke="var(--path)" stroke-width="2" stroke-dasharray="5 5" opacity=".8"/>`;}
+addEventListener("resize",draw);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(draw);requestAnimationFrame(draw);setTimeout(draw,400);
+
+/* Details und Durchlauf */
+const det=document.getElementById("detail"),pos=document.getElementById("pos");let cur=-1;
+function show(i){cur=i;const s=S[i],r=ROLES.find(x=>x.k===s[1]);
+ document.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",String(+c.dataset.i===i)));
+ det.style.setProperty("--rc",`var(${r.c})`);
+ det.innerHTML=`<div class="dh"><div><span class="who">Schritt ${i+1} von ${S.length} · Mission ${s[0]}: ${MIS[s[0]-1]} · ${r.n}</span><h2>${s[2]}</h2></div><button type="button" class="x" id="dx" aria-label="Details schließen">×</button></div><p style="font-family:var(--f-mono);font-size:.82rem;color:var(--muted)">${s[3]}</p><ul>${s[4].map(x=>`<li>${x}</li>`).join("")}</ul>`;
+ det.hidden=false;document.getElementById("dx").onclick=()=>{det.hidden=true;document.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed","false"))};
+ pos.textContent=`${i+1} / ${S.length}`;document.getElementById("next").textContent=i<S.length-1?"Weiter →":"Von vorn ↺";
+ const el=board.querySelector(`.chip[data-i="${i}"]`);el.scrollIntoView({block:"nearest",inline:"center",behavior:"smooth"});}
+document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>show(+c.dataset.i));
+document.getElementById("next").onclick=()=>show(cur<S.length-1?cur+1:0);
+document.getElementById("prev").onclick=()=>show(cur>0?cur-1:0);
+</script>
+</body>
+</html>

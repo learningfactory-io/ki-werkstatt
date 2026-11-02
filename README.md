@@ -11,3 +11,4 @@ Alle Inhalte liegen hier als einfache Textdateien. Aus denselben Dateien entsteh
 - `img/` – Vergleichsbilder (Screenshots)
 - `dateien/` – Übungsdateien zum Herunterladen
 - `vorlagen/` – Aussehen von Plattform und Buch
+- `web/` – die fertige Webseite, genau so, wie sie auf doc-tools.org liegt (Begleitmaterial zum Kurs „KI in Presse- und Öffentlichkeitsarbeit“)

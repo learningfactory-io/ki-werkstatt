@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KI-Kompetenz aufbauen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: Spiel-HUD oben (Level, Punkte, Abzeichen), darunter Missionskarte als Pfad und aufklappbare Missionen */
+:root{
+  --bg:#f2f4f8; --surface:#ffffff; --ink:#17202e; --muted:#5a6578; --line:#d9dee7;
+  --accent:#1f4fd1; --accent-soft:#e3eafc;
+  --xp:#c58a00; --xp-soft:#fbf0d4;
+  --ok:#1b7f3a; --ok-soft:#dff3e5; --bad:#b4232c; --bad-soft:#fbe3e4;
+  --lock:#9aa3b2;
+  --git:#e5532d; --gh:#24292f; --srv:#0e8a7a;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f131b; --surface:#171d28; --ink:#e7ebf2; --muted:#9aa5b8; --line:#2a3343;
+  --accent:#7ea2ff; --accent-soft:#1d2a4a; --xp:#f2b632; --xp-soft:#3a2c0c;
+  --ok:#5ccf7d; --ok-soft:#173622; --bad:#ff7b82; --bad-soft:#3d1a1d; --lock:#5d6678;
+  --git:#ff7a55; --gh:#c9d1d9; --srv:#3fc7b3; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f131b; --surface:#171d28; --ink:#e7ebf2; --muted:#9aa5b8; --line:#2a3343;
+  --accent:#7ea2ff; --accent-soft:#1d2a4a; --xp:#f2b632; --xp-soft:#3a2c0c;
+  --ok:#5ccf7d; --ok-soft:#173622; --bad:#ff7b82; --bad-soft:#3d1a1d; --lock:#5d6678;
+  --git:#ff7a55; --gh:#c9d1d9; --srv:#3fc7b3; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.6}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+h1,h2,h3{font-family:var(--f-display);line-height:1.15;margin:0;text-wrap:balance}
+p{margin:0;max-width:68ch}
+code,.path{font-family:var(--f-mono);font-size:.84em;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+
+/* HUD */
+.hud{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.hud-in{max-width:980px;margin:0 auto;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.lvl{display:flex;align-items:center;gap:10px;min-width:0}
+.lvl-badge{width:42px;height:42px;border-radius:50%;background:var(--xp-soft);border:3px solid var(--xp);display:grid;place-items:center;font-family:var(--f-display);font-weight:800;color:var(--xp);font-size:1.1rem;flex:none}
+.lvl-name{font-family:var(--f-display);font-weight:800;line-height:1.1}
+.lvl-sub{font-size:.8rem;color:var(--muted)}
+.xpwrap{flex:1 1 220px;min-width:180px}
+.xpbar{height:12px;background:var(--line);border-radius:6px;overflow:hidden}
+.xpbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--xp),#e8b23a);transition:width .6s}
+.xptxt{font-family:var(--f-mono);font-size:.78rem;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
+.badges{display:flex;gap:4px;flex-wrap:wrap}
+.bdg{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;font-size:.95rem;background:var(--bg);border:1px dashed var(--line);filter:grayscale(1);opacity:.45}
+.bdg.on{filter:none;opacity:1;border:1px solid var(--xp);background:var(--xp-soft)}
+.hudbtn{font:inherit;font-size:.8rem;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:6px;padding:3px 8px;cursor:pointer}
+
+main{max-width:980px;margin:0 auto;padding-block:26px 90px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:26px}
+.eyebrow{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.hero{display:grid;gap:10px}
+.hero h1{font-size:clamp(2rem,5vw,3rem);font-weight:800}
+.lead{font-size:1.15rem;color:var(--muted)}
+
+/* Missionspfad */
+.path-map{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.node{display:flex;align-items:center;gap:8px;font:inherit;font-size:.9rem;border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:99px;padding:5px 12px 5px 5px;cursor:pointer}
+.node .n{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-mono);font-weight:600;font-size:.8rem;background:var(--bg);border:1px solid var(--line)}
+.node.done{border-color:var(--ok)} .node.done .n{background:var(--ok);color:var(--surface);border-color:var(--ok)}
+.node.current{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)} .node.current .n{background:var(--accent);color:var(--surface);border-color:var(--accent)}
+.node.locked{color:var(--lock);border-style:dashed}
+.sep{width:14px;height:2px;background:var(--line)}
+
+/* Missionen */
+.mission{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.mission.done{border-color:var(--ok)}
+.mission.locked{opacity:.75}
+.mhead{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;padding:16px 18px;cursor:pointer;width:100%;font:inherit;text-align:left;background:none;border:0;color:inherit}
+.micon{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;font-size:1.5rem;background:var(--accent-soft)}
+.mission.done .micon{background:var(--ok-soft)}
+.mission.locked .micon{background:var(--bg)}
+.mtitle{font-family:var(--f-display);font-weight:800;font-size:1.2rem;line-height:1.2}
+.mmeta{font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px}
+.mxp{font-family:var(--f-mono);font-size:.82rem;color:var(--xp);font-weight:600;white-space:nowrap}
+.mbody{border-top:1px solid var(--line);padding:18px;display:grid;gap:18px}
+.briefing{background:var(--accent-soft);border-radius:10px;padding:14px 16px;display:grid;gap:4px}
+.briefing b{font-family:var(--f-mono);font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.lockmsg{color:var(--muted);font-size:.95rem}
+
+/* Schritte */
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.steps>li{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--surface)}
+.steps>li>input{width:20px;height:20px;margin-top:3px;accent-color:var(--ok)}
+.steps>li.checked{border-color:var(--ok);background:var(--ok-soft)}
+.sb{display:grid;gap:8px;min-width:0}
+.sb h3{font-size:1.05rem}
+.sb .x{font-family:var(--f-mono);font-size:.74rem;color:var(--xp);margin-left:6px}
+ul.clean,ol.clean{margin:0;padding-left:1.2em;display:grid;gap:4px;max-width:68ch}
+.prompt{display:grid;gap:6px}
+pre.copy{margin:0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-family:var(--f-mono);font-size:.82rem;white-space:pre-wrap;word-break:break-word;line-height:1.5}
+.cbtn{font:inherit;font-size:.8rem;font-weight:700;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;padding:4px 10px;cursor:pointer;justify-self:start}
+.tip{border-left:4px solid var(--ok);background:var(--ok-soft);padding:10px 14px;border-radius:0 8px 8px 0;font-size:.95rem}
+.tip b{color:var(--ok)}
+.warn{border-left:4px solid var(--xp);background:var(--xp-soft);padding:10px 14px;border-radius:0 8px 8px 0;font-size:.95rem}
+.why{font-size:.92rem;color:var(--muted)}
+.why b{color:var(--ink)}
+:root[data-os="mac"] .os-win{display:none!important}
+:root:not([data-os="mac"]) .os-mac{display:none!important}
+.cfg{background:var(--surface);border:2px solid var(--accent);border-radius:14px}
+.cfg summary{cursor:pointer;padding:14px 18px;font-family:var(--f-display);font-weight:800;font-size:1.1rem}
+.cfg .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;padding:0 18px 18px}
+.cfg label{display:grid;gap:4px;font-weight:700;font-size:.9rem}
+.cfg input,.cfg select{font:inherit;font-weight:400;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-width:0}
+.cfg small{font-weight:400;color:var(--muted);font-size:.8rem}
+details.hint{border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+details.hint summary{cursor:pointer;padding:10px 14px;font-weight:700;color:var(--accent)}
+details.hint[open] summary{border-bottom:1px solid var(--line)}
+.hb{padding:12px 14px;display:grid;gap:10px}
+
+/* Grafiken */
+.fig{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto;min-width:600px}
+.fig figcaption,.figcap{font-size:.85rem;color:var(--muted);margin-top:6px}
+svg text{font-family:var(--f-body)}
+
+/* Wendekarten */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.flip{perspective:900px;height:170px;border:0;background:none;padding:0;cursor:pointer;font:inherit;color:inherit}
+.flip .in{position:relative;width:100%;height:100%;transition:transform .5s;transform-style:preserve-3d}
+.flip.on .in{transform:rotateY(180deg)}
+.flip .f,.flip .b{position:absolute;inset:0;backface-visibility:hidden;border-radius:12px;padding:14px;display:grid;align-content:center;justify-items:center;text-align:center;gap:6px;border:1px solid var(--line)}
+.flip .f{background:var(--surface)}
+.flip .f .ic{font-size:2rem}
+.flip .f .t{font-family:var(--f-display);font-weight:800;font-size:1.1rem}
+.flip .f .h{font-size:.75rem;color:var(--muted)}
+.flip .b{background:var(--accent-soft);transform:rotateY(180deg);font-size:.88rem;line-height:1.4}
+.flip .b strong{font-family:var(--f-display)}
+
+/* Sortierspiel */
+.order{display:grid;gap:10px}
+.pool,.slots{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:inherit;font-size:.92rem;border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:99px;padding:6px 14px;cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.chip.placed{border-color:var(--ok);background:var(--ok-soft);cursor:default}
+.chip.shake{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.slots{min-height:44px;border:2px dashed var(--line);border-radius:12px;padding:6px;align-items:center}
+.slots .arrow{color:var(--muted)}
+
+/* Mockups */
+.mock{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface);font-size:.88rem}
+.mock .bar{display:flex;gap:6px;align-items:center;padding:8px 10px;background:var(--bg);border-bottom:1px solid var(--line);font-family:var(--f-mono);font-size:.76rem;color:var(--muted)}
+.mock .bar i{width:10px;height:10px;border-radius:50%;background:var(--line);display:inline-block}
+.mock .body{padding:14px;display:grid;gap:10px}
+.mfield{display:grid;gap:3px}
+.mfield label{font-weight:700;font-size:.84rem}
+.mfield .inp{border:1px solid var(--line);border-radius:6px;padding:6px 9px;background:var(--bg);font-family:var(--f-mono);font-size:.82rem}
+.mark{outline:3px solid var(--bad);outline-offset:2px;border-radius:6px;position:relative}
+.mark::after{content:attr(data-n);position:absolute;top:-11px;right:-11px;background:var(--bad);color:#fff;font-size:.72rem;font-weight:700;width:20px;height:20px;border-radius:50%;display:grid;place-items:center}
+.radio{display:flex;gap:16px;flex-wrap:wrap}
+.radio span{display:flex;gap:6px;align-items:center}
+.radio i{width:14px;height:14px;border-radius:50%;border:2px solid var(--muted);display:inline-block}
+.radio i.on{border-color:var(--accent);background:radial-gradient(var(--accent) 45%,transparent 50%)}
+.mbtn{justify-self:start;background:#1f883d;color:#fff;border-radius:6px;padding:6px 14px;font-weight:700}
+.dialog{border:2px solid var(--accent);border-radius:12px;padding:12px 14px;display:grid;gap:8px;background:var(--surface)}
+.dialog .cmd{font-family:var(--f-mono);font-size:.8rem;background:var(--bg);border-radius:6px;padding:6px 8px}
+.dialog .btns{display:flex;gap:8px;flex-wrap:wrap}
+.dialog .btns span{border:1px solid var(--line);border-radius:6px;padding:4px 12px;font-size:.85rem}
+.dialog .btns span.y{background:var(--accent);color:var(--surface);border-color:var(--accent)}
+.tree{font-family:var(--f-mono);font-size:.85rem;line-height:1.7;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;white-space:pre;overflow-x:auto}
+.tree .c{color:var(--muted)}
+.tree .d{color:var(--accent);font-weight:600}
+.cbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.88rem}
+.cbar span{padding:3px 8px;border-radius:6px}
+.cbar .hit{outline:3px solid var(--bad);color:var(--bad);font-weight:700}
+.cbar .sp{flex:1}
+
+/* Quiz */
+.quiz{display:grid;gap:14px;background:var(--bg);border-radius:12px;padding:14px}
+.quiz h3{font-size:1rem}
+.q{display:grid;gap:6px}
+.q p{font-weight:700}
+.opt{display:block;width:100%;text-align:left;font:inherit;font-size:.95rem;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt.right{background:var(--ok-soft);border-color:var(--ok);color:var(--ok);font-weight:700}
+.opt.wrong{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.opt:disabled{cursor:default}
+.fb{font-size:.9rem;color:var(--muted)}
+
+.mfoot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.btn{font:inherit;font-weight:700;border-radius:8px;padding:10px 18px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.need{font-size:.85rem;color:var(--muted)}
+
+/* Toast + Urkunde */
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(140%);background:var(--ink);color:var(--surface);border-radius:12px;padding:10px 16px;font-weight:700;display:flex;gap:10px;align-items:center;transition:transform .35s;z-index:20;max-width:calc(100% - 32px)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.cert{border:3px double var(--xp);border-radius:16px;padding:22px;text-align:center;display:grid;gap:8px;background:var(--xp-soft)}
+.cert .seal{font-size:2.6rem}
+.cert h2{font-size:1.6rem}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (max-width:560px){.hud-in{gap:8px 12px}.lvl-sub{display:none}}
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+<style>
+/* Zusätze Kompetenz-Zweig: Welt-Umschalter, Zuordnungsspiel, Fehlersuche, Prompt-Baukasten */
+.world{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.world b{font-size:.9rem;margin-right:4px}
+.wbtn{font:inherit;font-size:.92rem;border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:99px;padding:6px 14px;cursor:pointer}
+.wbtn[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);font-weight:700}
+.cls{display:grid;gap:10px;background:var(--bg);border-radius:12px;padding:14px}
+.cls h3{font-size:1rem}
+.cls-item{display:grid;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.cls-item.ok{border-color:var(--ok)}
+.cls-item.no{border-color:var(--bad)}
+.cls-item p{font-weight:600}
+.cls-btns{display:flex;flex-wrap:wrap;gap:6px}
+.cbtn2{font:inherit;font-size:.85rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:99px;padding:4px 12px;cursor:pointer}
+.cbtn2:hover:not(:disabled){border-color:var(--accent)}
+.cbtn2.right{background:var(--ok-soft);border-color:var(--ok);color:var(--ok);font-weight:700}
+.cbtn2.wrong{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.cbtn2:disabled{cursor:default}
+.spot{display:grid;gap:10px;background:var(--bg);border-radius:12px;padding:14px}
+.spot h3{font-size:1rem}
+.sents{display:grid;gap:6px}
+.sent{display:block;width:100%;text-align:left;font:inherit;font-size:.95rem;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
+.sent.flag{border-color:var(--xp);background:var(--xp-soft)}
+.sent.hit{border-color:var(--ok);background:var(--ok-soft)}
+.sent.miss{border-color:var(--bad);background:var(--bad-soft)}
+.sent small{display:block;color:var(--muted);font-size:.85rem;margin-top:3px}
+.builder{display:grid;gap:10px;background:var(--bg);border-radius:12px;padding:14px}
+.builder h3{font-size:1rem}
+.builder label{display:grid;gap:4px;font-weight:700;font-size:.9rem}
+.builder label small{font-weight:400;color:var(--muted)}
+.builder textarea{font:inherit;font-weight:400;font-size:.95rem;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);min-height:54px;resize:vertical}
+.src{font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+.d4{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.d4 div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.92rem}
+.d4 strong{font-family:var(--f-display);display:block;font-size:1.02rem}
+</style>
+
+<header class="hud" aria-label="Fortschritt">
+ <div class="hud-in">
+  <div class="lvl"><div class="lvl-badge" id="lvlNum">1</div><div><div class="lvl-name" id="lvlName">Lehrling</div><div class="lvl-sub" id="lvlNext"></div></div></div>
+  <div class="xpwrap"><div class="xpbar"><i id="xpBar"></i></div><div class="xptxt" id="xpTxt"></div></div>
+  <div class="badges" id="badges" aria-label="Abzeichen"></div>
+  <button class="hudbtn" id="reset" type="button" title="Setzt alles zurück: Punkte, Abzeichen und Missionen">Neu starten</button>
+ </div>
+</header>
+
+<main>
+ <section class="hero">
+  <p class="eyebrow">KI-Werkstatt · Kompetenz-Zweig · ca. 2,5 Stunden in 6 Missionen</p>
+  <h1>KI-Kompetenz aufbauen</h1>
+  <p class="lead">Werkzeuge ändern sich, Kompetenz bleibt. In diesem Zweig übst du die vier Fähigkeiten, mit denen du mit jeder KI gut zusammenarbeitest: Aufgaben sinnvoll <strong>übertragen</strong>, klar <strong>beschreiben</strong>, Ergebnisse kritisch <strong>beurteilen</strong> und <strong>gewissenhaft</strong> Verantwortung übernehmen. Für jede Aufgabe gibt es Punkte, für jede Mission ein Abzeichen.</p>
+  <div class="world" role="group" aria-label="Deine Welt"><b>Deine Welt:</b><span id="worldBtns"></span></div>
+  <p class="why" id="worldInfo"></p>
+ </section>
+ <nav class="path-map" id="pathMap" aria-label="Missionen"></nav>
+ <div id="missions" style="display:grid;gap:14px"></div>
+ <p class="src"><b>Grundlage:</b> Das 4D-Modell (Delegation, Description, Discernment, Diligence – hier: Übertragung, Beschreibung, Beurteilung, Gewissenhaftigkeit) und die drei Formen der Zusammenarbeit stammen aus dem <em>AI Fluency Framework</em> von Rick Dakan (Ringling College of Art and Design) und Joseph Feller (University College Cork). Texte, Beispiele und Übungen in diesem Modul sind eigenständig für die KI-Werkstatt geschrieben. Zum Vertiefen eignet sich der kostenlose Kurs „KI-Kompetenz: Grundkonzept &amp; Modelle“ in der Claude Academy von Anthropic.</p>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ---------- Welten ---------- */
+const WORLDS={
+ p:{name:"Pressestelle",info:"Beispiele aus der fiktiven Pressestelle der Stadt Lindenau mit Pressereferentin Jana Albers.",ctx:"Ich arbeite in der Pressestelle einer Stadtverwaltung."},
+ u:{name:"IT-Umschulung",info:"Beispiele aus einer fiktiven Umschulung zum Fachinformatiker mit Umschüler Deniz.",ctx:"Ich mache eine Umschulung zum Fachinformatiker."},
+ k:{name:"Kleines Unternehmen",info:"Beispiele aus dem fiktiven Malerbetrieb Kessler mit Inhaberin Sabine Kessler.",ctx:"Ich führe einen kleinen Handwerksbetrieb (Malerbetrieb) mit sechs Mitarbeitenden."}
+};
+const V=o=>o[st.world]||o.p;
+const P=(t,l="Prompt kopieren")=>`<div class="prompt"><pre class="copy">${t}</pre><button class="cbtn" type="button">${l}</button></div>`;
+const TIP=t=>`<div class="tip"><b>Tipp:</b> ${t}</div>`;
+const WHY=t=>`<p class="why"><b>Warum?</b> ${t}</p>`;
+const S=(id,t,b)=>`<li data-step="${id}"><input type="checkbox" id="${id}" aria-label="Schritt erledigt"><div class="sb"><h3>${t}<span class="x">+10 Punkte</span></h3>${b}</div></li>`;
+
+/* ---------- Zuordnungsspiele (je Welt) ---------- */
+const MODES=["Automation","Augmentation","Agency"];
+const WHO=["Mensch","KI","Gemeinsam"];
+const DESC=["Ergebnis","Vorgehen","Verhalten"];
+const DIL=["In Ordnung","Nur mit Kennzeichnung oder Freigabe","Nicht in Ordnung"];
+const CLS={
+ modes:{cats:MODES,title:"Welche Form der Zusammenarbeit ist das?",items:{
+  p:[["Claude kürzt eine fertige Pressemitteilung auf 600 Zeichen für Instagram.",0,"Eine klar umrissene Aufgabe nach Anweisung."],
+     ["Jana spielt mit Claude ein schwieriges Interview durch, Claude stellt kritische Rückfragen.",1,"Beide denken gemeinsam, Jana bleibt im Gespräch."],
+     ["Ein Agent erstellt jeden Montag aus der Terminliste Entwürfe für die Woche und legt sie in einen Ordner.",2,"Die KI arbeitet selbstständig in einem festgelegten Rahmen."],
+     ["Claude überträgt eine Meldung in Leichte Sprache.",0,"Klare Vorgabe, klares Ergebnis."],
+     ["Jana entwickelt mit Claude Ideen für eine Kampagne zum Stadtjubiläum.",1,"Gemeinsames Denken und Weiterentwickeln."],
+     ["Ein Agent prüft alle neuen Entwürfe gegen den Styleguide und schreibt einen Prüfbericht.",2,"Eigenständige Arbeit über viele Dateien nach festen Regeln."]],
+  u:[["Claude formatiert eine Liste von IP-Adressen als Tabelle.",0,"Eine klar umrissene Aufgabe nach Anweisung."],
+     ["Deniz lässt sich Subnetting erklären und fragt nach, bis er es verstanden hat.",1,"Gemeinsames Denken: Deniz lernt im Dialog."],
+     ["Ein Agent legt im Projektordner die Grundstruktur einer kleinen Web-App an und führt die Tests aus.",2,"Die KI handelt selbstständig mit Werkzeugen."],
+     ["Claude überträgt eine Funktion von Python nach Java.",0,"Klare Vorgabe, klares Ergebnis."],
+     ["Deniz plant mit Claude die Gliederung eines Lernplans für die Abschlussprüfung.",1,"Beide entwickeln gemeinsam weiter."],
+     ["Ein Agent prüft jeden Abend die Logdateien und meldet Auffälligkeiten.",2,"Eigenständige, wiederkehrende Arbeit nach Regeln."]],
+  k:[["Claude formuliert aus Stichpunkten eine Antwort-Mail an einen Kunden.",0,"Eine klar umrissene Aufgabe nach Anweisung."],
+     ["Sabine überlegt mit Claude, wie sie ihre Preise für Fassadenanstriche begründet.",1,"Gemeinsames Abwägen und Denken."],
+     ["Ein Agent sortiert eingehende Anfragen und legt für jede einen Angebotsentwurf an.",2,"Die KI arbeitet selbstständig in einem Rahmen."],
+     ["Claude erstellt aus einem Aufmaß eine Materialliste.",0,"Klare Vorgabe, klares Ergebnis."],
+     ["Sabine entwickelt mit Claude Ideen für eine Stellenanzeige für Auszubildende.",1,"Gemeinsames Entwickeln."],
+     ["Ein Agent trägt Terminanfragen nach festen Regeln in den Kalender ein und bestätigt sie.",2,"Eigenständiges Handeln mit Werkzeugen."]]}},
+ who:{cats:WHO,title:"Wer übernimmt diese Aufgabe am besten?",items:{
+  p:[["Entscheiden, ob die Stadt zu einem Vorwurf Stellung nimmt",0,"Abwägung mit Verantwortung nach außen bleibt beim Menschen."],
+     ["Fünf Varianten für eine Überschrift vorschlagen",1,"Viele Varianten in kurzer Zeit sind eine Stärke der KI."],
+     ["Pressemitteilung zu einem Ratsbeschluss schreiben",2,"Die KI entwirft, der Mensch prüft Fakten und Ton."],
+     ["Ein Zitat des Bürgermeisters formulieren",0,"Zitate stammen nur aus realen, freigegebenen Aussagen."],
+     ["Rechtschreibung und Hausstil prüfen",1,"Regelbasierte Prüfung kann die KI gut übernehmen."],
+     ["Sprachregelung für eine Krise entwickeln",2,"Die KI liefert Optionen, der Mensch entscheidet und stimmt ab."]],
+  u:[["Entscheiden, welche Firewall-Regeln im Betrieb gelten",0,"Sicherheitsentscheidungen tragen Menschen mit Verantwortung."],
+     ["Testdaten für eine Datenbank erzeugen",1,"Fiktive Testdaten erzeugt die KI schnell."],
+     ["Eine Fehlermeldung im Code verstehen und beheben",2,"Die KI erklärt und schlägt vor, Deniz versteht und testet."],
+     ["Die IHK-Projektdokumentation als Eigenleistung schreiben",0,"Eigenleistung bleibt eigene Arbeit. Regeln der Prüfungsstelle vorher klären."],
+     ["Kommentare im Code ergänzen",1,"Routinearbeit, die anschließend gelesen wird."],
+     ["Lernkarten aus den eigenen Mitschriften erstellen",2,"Die KI formt um, Deniz prüft auf Richtigkeit."]],
+  k:[["Festlegen, welchen Preis das Angebot hat",0,"Kalkulation und Verantwortung für den Preis liegen bei der Inhaberin."],
+     ["Einen Angebotstext freundlich formulieren",1,"Formulieren nach Vorgabe kann die KI gut."],
+     ["Auf eine Kundenbeschwerde antworten",2,"Die KI entwirft, Sabine entscheidet über Ton und Zugeständnisse."],
+     ["Entscheiden, wer eingestellt wird",0,"Personalentscheidungen bleiben beim Menschen."],
+     ["Einen Beitrag für die Website zu einem fertigen Projekt entwerfen",1,"Entwurf durch die KI, danach kurze Prüfung."],
+     ["Eine Unterweisung zum Arbeitsschutz vorbereiten",2,"Die KI strukturiert, Sabine prüft fachlich und rechtlich."]]}},
+ desc:{cats:DESC,title:"Welche Art der Beschreibung ist das?",items:{
+  p:[["Höchstens 1.800 Zeichen, Überschrift plus Unterzeile.",0,"Legt fest, was herauskommen soll."],
+     ["Lies zuerst den Styleguide, dann schreib den Entwurf.",1,"Legt die Schritte fest."],
+     ["Widersprich mir, wenn eine Formulierung beschönigt.",2,"Legt fest, wie sich die KI im Gespräch verhält."],
+     ["Zielgruppe: Bürgerinnen und Bürger ohne Vorwissen.",0,"Zielgruppe gehört zum Ergebnis."],
+     ["Stell mir erst drei Rückfragen, bevor du anfängst.",1,"Ein Arbeitsschritt vor dem Schreiben."],
+     ["Antworte knapp und ohne Floskeln.",2,"Der Stil der Zusammenarbeit."]],
+  u:[["Gib den Code als eine Datei mit Kommentaren aus.",0,"Legt fest, was herauskommen soll."],
+     ["Erklär erst den Lösungsweg, dann zeig den Code.",1,"Legt die Schritte fest."],
+     ["Sag es mir direkt, wenn mein Ansatz unsicher ist.",2,"Legt fest, wie sich die KI verhält."],
+     ["Erklärung für jemanden im ersten Umschulungsmonat.",0,"Zielgruppe gehört zum Ergebnis."],
+     ["Frag nach, welche Programmiersprache ich nutze.",1,"Ein Arbeitsschritt vor der Antwort."],
+     ["Gib mir Hinweise statt der fertigen Lösung.",2,"Die Rolle der KI: Lernbegleiter statt Lösungsautomat."]],
+  k:[["Angebotstext mit Positionen, Preisen und Gültigkeit.",0,"Legt fest, was herauskommen soll."],
+     ["Rechne zuerst die Fläche aus dem Aufmaß nach, dann erstelle die Liste.",1,"Legt die Schritte fest."],
+     ["Sag mir, wenn ein Preis unrealistisch wirkt.",2,"Legt fest, wie sich die KI verhält."],
+     ["Ton: freundlich, per Sie, höchstens eine Seite.",0,"Form und Länge gehören zum Ergebnis."],
+     ["Frag nach fehlenden Maßen, statt zu schätzen.",1,"Ein Arbeitsschritt vor dem Rechnen."],
+     ["Bleib sachlich, auch wenn der Kunde unhöflich war.",2,"Haltung und Ton der KI."]]}},
+ dil:{cats:DIL,title:"Wie bewertest du diesen Einsatz?",items:{
+  p:[["Claude schlägt Überschriften vor, Jana wählt eine aus und veröffentlicht nach Prüfung.",0,"Mensch prüft und entscheidet. Alles gut."],
+     ["Ein KI-Bild zeigt den Bürgermeister bei einer Veranstaltung, die nie stattfand.",2,"Täuschende Bilder realer Personen sind tabu."],
+     ["Eine Illustration für den Newsletter wurde mit KI erstellt.",1,"Erlaubt, aber kennzeichnen."],
+     ["Jana kopiert eine Bürgerbeschwerde mit Namen und Adresse in einen privaten KI-Chat.",2,"Personenbezogene Daten gehören nicht in nicht freigegebene Werkzeuge."],
+     ["Ein Agent verschickt Antworten auf Presseanfragen ohne Prüfung.",1,"Nur mit Freigabe durch einen Menschen."],
+     ["Claude prüft die Rechtschreibung einer fertigen Mitteilung.",0,"Unkritische Hilfe, Mensch behält die Kontrolle."]],
+  u:[["Deniz lässt sich einen Algorithmus erklären und schreibt die Lösung selbst.",0,"KI als Lernhilfe, die Leistung bleibt seine."],
+     ["Im Praktikumsbetrieb gibt Deniz KI-erzeugten Code ab, ohne es zu sagen.",1,"Offenlegen und die Regeln des Betriebs beachten."],
+     ["Deniz kopiert die Zugangsdaten eines Kundenservers in den Chat, um einen Fehler zu finden.",2,"Zugangsdaten gehören nie in einen Chat."],
+     ["Er reicht eine komplett von KI geschriebene Projektdokumentation als Eigenleistung ein.",2,"Das ist Täuschung in der Prüfung."],
+     ["Ein Skript von Claude soll auf dem Produktivserver laufen.",1,"Erst testen, prüfen lassen und freigeben."],
+     ["Claude erstellt Lernkarten aus seinen eigenen Mitschriften.",0,"Sinnvoll und unkritisch."]],
+  k:[["Claude formuliert eine Stellenanzeige, Sabine prüft und veröffentlicht.",0,"Mensch prüft und entscheidet."],
+     ["Die Website zeigt KI-erzeugte Vorher-nachher-Bilder einer Fassade, die so nie gestrichen wurde.",2,"Das täuscht Kundinnen und Kunden."],
+     ["Ein Chatbot auf der Website beantwortet Fragen, ohne dass erkennbar ist, dass es eine KI ist.",1,"Kennzeichnen: Menschen sollen wissen, dass sie mit einer KI sprechen."],
+     ["Sabine lädt die Lohnabrechnungen ihrer Mitarbeitenden in einen KI-Chat.",2,"Sensible Personaldaten gehören nicht in nicht freigegebene Werkzeuge."],
+     ["Ein Agent verschickt Angebote mit Preisen automatisch.",1,"Nur mit Freigabe: Preise sind verbindlich."],
+     ["Claude erstellt eine Checkliste für die Baustellenvorbereitung.",0,"Sinnvoll, nach kurzer Prüfung einsetzbar."]]}}
+};
+
+/* ---------- Fehlersuche (je Welt) ---------- */
+const SPOT={
+ p:{intro:"Claude hat aus Janas Stichpunkten diese Pressemitteilung geschrieben. Drei Sätze sind problematisch. Markiere sie.",s:[
+  ["Die Stadtbücherei Lindenau eröffnet am Samstag, 14. November 2026, um 15 Uhr ein Lesecafé.",0,""],
+  ["Es ist das schönste Lesecafé der ganzen Region.",1,"Wertung ohne Beleg und gegen den Hausstil (keine Superlative)."],
+  ["Kaffee und Kuchen kommen vom Inklusionsbetrieb „Zuckerwerk“.",0,""],
+  ["„Ein Ort für alle Generationen“, sagt Bürgermeister Thomas Brink.",1,"Erfundenes Zitat. Richtig wäre ein Platzhalter wie [Zitat Brink]."],
+  ["Das Café bietet 20 Sitzplätze, kostenloses WLAN und Tageszeitungen.",0,""],
+  ["Seit 2019 besuchen jährlich über 80.000 Menschen die Bücherei.",1,"Diese Zahl stand nicht in den Stichpunkten. Die KI hat sie erfunden."]]},
+ u:{intro:"Deniz hat sich Subnetting erklären lassen. Drei Aussagen sind falsch. Markiere sie.",s:[
+  ["Eine IPv4-Adresse besteht aus 32 Bit.",0,""],
+  ["Die Subnetzmaske 255.255.255.0 entspricht der Präfixlänge /24.",0,""],
+  ["In einem /24-Netz stehen 256 Adressen für Geräte zur Verfügung.",1,"Nutzbar sind 254: Netz- und Broadcastadresse fallen weg."],
+  ["Im Netz 192.168.1.0/24 ist 192.168.1.255 die Broadcastadresse.",0,""],
+  ["Ein /25-Netz ist doppelt so groß wie ein /24-Netz.",1,"Umgekehrt: Ein /25-Netz ist halb so groß."],
+  ["IPv6-Adressen sind 64 Bit lang.",1,"IPv6-Adressen sind 128 Bit lang."]]},
+ k:{intro:"Claude hat für Sabine eine Angebots-Mail entworfen. Drei Sätze sind fehlerhaft. Markiere sie.",s:[
+  ["Vielen Dank für Ihre Anfrage zum Anstrich Ihrer Fassade.",0,""],
+  ["Für 120 m² Fassadenfläche berechnen wir 18 € pro m², also 2.160 € netto.",0,""],
+  ["Inklusive 19 % Mehrwertsteuer ergibt das 2.400 €.",1,"Falsch gerechnet: richtig sind 2.570,40 €."],
+  ["Wir garantieren eine Haltbarkeit von 30 Jahren.",1,"Unrealistisches Versprechen, das der Betrieb nie gegeben hat."],
+  ["Als Termin schlagen wir die Kalenderwoche 18 vor.",0,""],
+  ["Das Angebot gilt bis zum 31. Februar.",1,"Diesen Tag gibt es nicht."]]}
+};
+
+/* ---------- Prompt-Baukasten (je Welt) ---------- */
+const BUILD={
+ p:{task:"Schreib eine Pressemitteilung zur Sperrung der Hauptstraße vom 2. bis 13. März wegen Kanalarbeiten.",erg:"Höchstens 1.500 Zeichen, Überschrift und Unterzeile, Umleitung in einem eigenen Absatz, Kontakt am Ende.",vor:"Stell mir zuerst Rückfragen zu fehlenden Angaben. Erfinde keine Zahlen und keine Zitate, nutze stattdessen [prüfen] oder [Zitat Name].",ver:"Sachlich, keine Superlative. Sag mir, wenn eine Formulierung beschönigt."},
+ u:{task:"Erklär mir, wie DHCP funktioniert.",erg:"Eine Erklärung in fünf Schritten mit einem Alltagsvergleich, danach drei Kontrollfragen.",vor:"Frag zuerst, was ich schon weiß. Erklär dann Schritt für Schritt.",ver:"Geduldig und direkt. Wenn ich etwas falsch verstehe, sag es mir klar."},
+ k:{task:"Schreib eine Antwort an Frau Weber, die nach einem Termin für den Innenanstrich ihrer Wohnung fragt.",erg:"Kurze Mail per Sie, höchstens 120 Wörter, mit zwei Terminvorschlägen und Bitte um Rückmeldung.",vor:"Frag nach, wenn Angaben fehlen, statt sie zu erfinden.",ver:"Freundlich und verbindlich, ohne Werbefloskeln."}
+};
+
+/* ---------- Missionen ---------- */
+const M=[
+{id:"k1",icon:"🧭",title:"Was ist KI-Kompetenz?",min:20,badge:"🧭",bname:"Kompass",widgets:["cards","cls:modes"],
+brief:"Bevor du übst, brauchst du den Kompass: Was heißt eigentlich, „gut“ mit KI zu arbeiten? Und auf welche Arten kann man überhaupt zusammenarbeiten?",
+html:()=>`<p>KI-Kompetenz heißt: <strong>effektiv, effizient, ethisch und sicher</strong> mit KI zusammenarbeiten. Es geht nicht darum, möglichst viele Werkzeuge zu kennen, sondern um Fähigkeiten, die bei jedem Werkzeug gelten. Das 4D-Modell fasst sie in vier Kompetenzen. Dreh die Karten um:</p>
+<div class="cards">
+${[["🤝","Übertragung","Delegation","<strong>Ob, wann und wie</strong> die KI mitarbeitet: Ziel klären, Werkzeug kennen, Aufgaben sinnvoll verteilen."],
+["✍️","Beschreibung","Description","<strong>Klar sagen</strong>, was herauskommen soll, wie die KI vorgehen und wie sie sich verhalten soll."],
+["🔍","Beurteilung","Discernment","<strong>Kritisch prüfen</strong>: Stimmt das Ergebnis, ist der Weg nachvollziehbar, passt das Verhalten?"],
+["🛡️","Gewissenhaftigkeit","Diligence","<strong>Verantwortung übernehmen</strong>: beim Erstellen, beim Offenlegen und beim Einsatz."]].map((c,i)=>`<button type="button" class="flip" data-card="${i}"><span class="in"><span class="f"><span class="ic">${c[0]}</span><span class="t">${c[1]}</span><span class="h">${c[2]} · antippen</span></span><span class="b">${c[3]}</span></span></button>`).join("")}
+</div>
+<p>Dazu kommen <strong>drei Formen der Zusammenarbeit</strong>:</p>
+<div class="d4"><div><strong>Automation</strong>Die KI erledigt eine klar umrissene Aufgabe nach deiner Anweisung.</div><div><strong>Augmentation</strong>Du und die KI denkt gemeinsam, du bleibst im Gespräch.</div><div><strong>Agency</strong>Die KI arbeitet selbstständig in einem Rahmen, den du festlegst, zum Beispiel als Agent.</div></div>
+${clsHTML("modes")}
+<div class="warn"><b>Pflicht, nicht Kür:</b> Der EU-AI-Act verpflichtet Organisationen, die KI einsetzen, die KI-Kompetenz ihres Personals zu fördern (Art. 4, seit Juli 2026 in geänderter Fassung). Ein Zertifikat ist dafür nicht vorgeschrieben. Dieses Modul kann ein Baustein dafür sein.</div>`,
+steps:[
+["Selbsteinschätzung mit Claude",()=>`<p>Starte einen neuen Chat und lass dich einschätzen:</p>${P(`${WORLDS[st.world].ctx} Ich möchte meine KI-Kompetenz einschätzen. Stell mir nacheinander acht kurze Fragen zu Übertragung, Beschreibung, Beurteilung und Gewissenhaftigkeit, immer nur eine, jeweils mit einer Skala von 1 bis 5. Fasse danach zusammen, wo ich stark bin und was ich üben sollte.`)}`],
+["Drei eigene Aufgaben einordnen",()=>`<p>Notiere drei Aufgaben aus deinem Alltag, bei denen KI helfen könnte, und ordne jede einer Form zu: Automation, Augmentation oder Agency.</p>${TIP("Die meisten Alltagsaufgaben starten als Automation oder Augmentation. Agency lohnt sich erst bei wiederkehrenden Abläufen.")}`]],
+quiz:[{q:"Was meint KI-Kompetenz im Kern?",o:["Möglichst viele KI-Werkzeuge kennen","Effektiv, effizient, ethisch und sicher mit KI zusammenarbeiten","Selbst KI-Modelle programmieren können"],a:1,e:"Kompetenz gilt werkzeugübergreifend."},
+{q:"Ein Agent arbeitet selbstständig in einem festgelegten Rahmen. Welche Form ist das?",o:["Automation","Augmentation","Agency"],a:2,e:"Agency: Die KI handelt eigenständig, du setzt den Rahmen."},
+{q:"Warum ist KI-Kompetenz für Organisationen in der EU auch eine rechtliche Frage?",o:["Der EU-AI-Act verpflichtet sie, die KI-Kompetenz ihres Personals zu fördern","Ohne Zertifikat darf niemand KI nutzen","Weil KI-Werkzeuge sonst nicht funktionieren"],a:0,e:"Art. 4 EU-AI-Act. Seit Juli 2026 gilt eine geänderte Fassung: fördern statt sicherstellen, ein Zertifikat ist nicht nötig."}]},
+
+{id:"k2",icon:"🤝",title:"Übertragung: Was gebe ich ab?",min:25,badge:"🤝",bname:"Verteiler",widgets:["cls:who"],
+brief:"Nicht jede Aufgabe gehört zur KI. Bevor du einen Prompt schreibst, entscheidest du: Was ist das Ziel, was kann das Werkzeug, und wer macht welchen Teil?",
+html:()=>`<div class="d4"><div><strong>Problembewusstsein</strong>Was genau ist das Ziel? Hilft KI hier überhaupt, oder ist es schneller selbst gemacht?</div><div><strong>Plattformwissen</strong>Was kann dieses Werkzeug, was nicht? Sucht es im Internet, liest es Dateien, was passiert mit meinen Daten?</div><div><strong>Aufgabenverteilung</strong>Welche Teile übernimmt die KI, welche du, welche macht ihr gemeinsam?</div></div>
+${clsHTML("who")}
+${WHY("Wer gut überträgt, spart Zeit, ohne Verantwortung abzugeben. Entscheidungen mit Folgen für andere Menschen bleiben beim Menschen.")}`,
+steps:[
+["Eine Aufgabe zerlegen lassen",()=>`${P(V({p:"Ich muss eine Pressemitteilung zur Sperrung einer Hauptstraße schreiben. Zerlege die Aufgabe in Teilschritte und schlage für jeden vor: Macht das die KI, mache ich das, oder machen wir es gemeinsam? Begründe kurz.",u:"Ich soll für meinen Praktikumsbetrieb eine Anleitung zur Einrichtung eines WLAN-Gastnetzes schreiben. Zerlege die Aufgabe in Teilschritte und schlage für jeden vor: Macht das die KI, mache ich das, oder machen wir es gemeinsam? Begründe kurz.",k:"Ich muss ein Angebot für den Innenanstrich einer Arztpraxis erstellen. Zerlege die Aufgabe in Teilschritte und schlage für jeden vor: Macht das die KI, mache ich das, oder machen wir es gemeinsam? Begründe kurz."}))}<p>Vergleiche mit deiner eigenen Einschätzung. Wo würdest du anders verteilen?</p>`],
+["Das Werkzeug kennenlernen",()=>`${P(`Was kannst du in dieser Umgebung, und was nicht? Kannst du im Internet suchen, auf Dateien zugreifen und dich an frühere Chats erinnern? Was passiert mit meinen Eingaben?`)}${TIP("Gleiche die Antwort mit den Einstellungen ab, zum Beispiel unter Datenschutz und Gedächtnis. Die Einstellungen sind verbindlicher als die Selbstauskunft der KI.")}`]],
+quiz:[{q:"Was gehört zum Problembewusstsein?",o:["Vor dem Start klären, was das Ziel ist und ob KI überhaupt hilft","Den längsten möglichen Prompt schreiben","Immer das stärkste Modell wählen"],a:0,e:"Erst das Ziel, dann das Werkzeug."},
+{q:"Was bedeutet Plattformwissen?",o:["Wissen, wer die Firma hinter der KI leitet","Wissen, was das konkrete Werkzeug kann, nicht kann und wie es mit Daten umgeht","Alle Tastenkürzel kennen"],a:1,e:"Funktionen und Grenzen des Werkzeugs bestimmen, was du überträgst."},
+{q:"Welche Aufgabe bleibt am ehesten beim Menschen?",o:["Varianten für eine Überschrift","Eine Entscheidung mit Verantwortung gegenüber anderen","Rechtschreibprüfung"],a:1,e:"Verantwortung lässt sich nicht an eine KI übertragen."}]},
+
+{id:"k3",icon:"✍️",title:"Beschreibung: Klar sagen, was du willst",min:25,badge:"✍️",bname:"Klartext",widgets:["cls:desc"],
+brief:"Gute Ergebnisse beginnen mit einer guten Beschreibung. Du lernst drei Ebenen kennen und baust deinen eigenen Prompt.",
+html:()=>`<div class="d4"><div><strong>Ergebnis</strong>Was soll herauskommen? Format, Länge, Zielgruppe, Beispiel.</div><div><strong>Vorgehen</strong>Wie soll die KI arbeiten? Schritte, Reihenfolge, erst Rückfragen.</div><div><strong>Verhalten</strong>Wie soll sich die KI im Gespräch verhalten? Ton, Rolle, Widerspruch.</div></div>
+${clsHTML("desc")}
+${builderHTML()}`,
+steps:[
+["Deinen Prompt im Chat testen",()=>`<p>Passe die Felder im Baukasten an, kopiere den fertigen Prompt und probiere ihn in einem neuen Chat aus.</p>`],
+["Mit einem Beispiel verbessern",()=>`<p>Gib Claude ein Vorbild mit, zum Beispiel einen eigenen älteren Text:</p>${P(`Hier ist ein Beispiel, wie so ein Text bei uns aussieht. Übernimm Aufbau und Ton, aber nicht den Inhalt:\n\n[Beispieltext einfügen]`)}${TIP("Ein gutes Beispiel zeigt Stil und Format besser als jede lange Erklärung.")}`]],
+quiz:[{q:"Was legt die Ergebnisbeschreibung fest?",o:["Format, Länge und Zielgruppe","Welches Modell genutzt wird","Wie lange die KI nachdenken darf"],a:0,e:"Sie beschreibt das Produkt."},
+{q:"„Stell mir zuerst Rückfragen.“ Welche Ebene ist das?",o:["Ergebnis","Vorgehen","Verhalten"],a:1,e:"Ein Arbeitsschritt, also Vorgehen."},
+{q:"Warum lohnt es sich, ein Beispiel mitzugeben?",o:["Weil die KI sonst nicht antwortet","Weil ein Beispiel Stil und Format oft besser zeigt als eine lange Erklärung","Weil Beispiele immer wörtlich übernommen werden"],a:1,e:"Beispiele sind Vorbilder, keine Kopiervorlagen."}]},
+
+{id:"k4",icon:"🔍",title:"Beurteilung: Kritisch prüfen",min:25,badge:"🔍",bname:"Prüfblick",widgets:["spot"],
+brief:"KI-Texte klingen oft überzeugend, auch wenn sie falsch sind. Du trainierst den Prüfblick: Ergebnis, Vorgehen und Verhalten.",
+html:()=>`<div class="d4"><div><strong>Ergebnis prüfen</strong>Stimmen Fakten, Zahlen und Daten? Passt der Text zum Zweck?</div><div><strong>Vorgehen prüfen</strong>Ist nachvollziehbar, wie die KI zum Ergebnis kam? Woher stammen Angaben?</div><div><strong>Verhalten prüfen</strong>Hat die KI nachgefragt, Unsicherheiten benannt, deine Regeln eingehalten?</div></div>
+${spotHTML()}
+${WHY("Ein sicherer Ton ist kein Beleg. Erfundene Zahlen, Zitate oder Daten sehen genauso aus wie echte.")}`,
+steps:[
+["Claude sich selbst prüfen lassen",()=>`${P(`Prüfe deine letzte Antwort: Welche Aussagen sind Fakten, die ich nachprüfen muss? Markiere sie mit [prüfen] und sag, woher sie stammen.`)}${TIP("Die Selbstprüfung ersetzt deine Prüfung nicht. Sie zeigt dir aber, wo du genauer hinsehen musst.")}`],
+["Das Vorgehen hinterfragen",()=>`${P(`Erklär mir Schritt für Schritt, wie du zu diesem Ergebnis gekommen bist. Wo warst du unsicher?`)}`]],
+quiz:[{q:"Was heißt „Ergebnis beurteilen“?",o:["Prüfen, ob Fakten stimmen und der Text zum Zweck passt","Zählen, wie lang der Text ist","Die Antwort mit Daumen hoch bewerten"],a:0,e:"Inhalt und Passung stehen im Mittelpunkt."},
+{q:"Eine KI-Antwort klingt sehr sicher. Was folgt daraus?",o:["Sie ist wahrscheinlich richtig","Über die Richtigkeit sagt das nichts","Sie wurde von Fachleuten geprüft"],a:1,e:"Ton und Richtigkeit hängen nicht zusammen."},
+{q:"Was gehört zum Verhalten beurteilen?",o:["Hat die KI nachgefragt und Unsicherheiten benannt?","Wie schnell die Antwort kam","Welche Farbe die Oberfläche hat"],a:0,e:"Gutes Verhalten: nachfragen statt erfinden."}]},
+
+{id:"k5",icon:"🔁",title:"Die Schleife: Beschreiben und beurteilen",min:25,badge:"🔁",bname:"Feinschliff",widgets:[],
+brief:"Selten passt der erste Entwurf. Profis drehen gezielt Runden: beschreiben, beurteilen, nachsteuern. Hier übst du drei Runden.",
+html:()=>`<figure class="fig" style="margin:0"><svg viewBox="0 0 640 170" role="img" aria-label="Schleife aus Beschreibung und Beurteilung">
+<rect x="40" y="55" width="190" height="60" rx="14" style="fill:var(--accent-soft);stroke:var(--accent);stroke-width:2"/><text x="135" y="91" text-anchor="middle" style="fill:var(--ink);font-weight:700;font-size:17px">✍️ Beschreiben</text>
+<rect x="410" y="55" width="190" height="60" rx="14" style="fill:var(--xp-soft);stroke:var(--xp);stroke-width:2"/><text x="505" y="91" text-anchor="middle" style="fill:var(--ink);font-weight:700;font-size:17px">🔍 Beurteilen</text>
+<path d="M235 70 C300 25 340 25 405 70" style="fill:none;stroke:var(--muted);stroke-width:2"/><polygon points="405,70 393,66 399,58" style="fill:var(--muted)"/>
+<path d="M405 100 C340 145 300 145 235 100" style="fill:none;stroke:var(--muted);stroke-width:2"/><polygon points="235,100 247,104 241,112" style="fill:var(--muted)"/>
+<text x="320" y="22" text-anchor="middle" style="fill:var(--muted);font-size:14px">Entwurf</text><text x="320" y="162" text-anchor="middle" style="fill:var(--muted);font-size:14px">gezielt nachsteuern</text></svg></figure>
+<p>Wichtig ist, <strong>konkret</strong> nachzusteuern: nicht „mach es besser“, sondern „kürzer, ohne Fachwörter, mit einem Beispiel aus dem Alltag“. Passt es nach drei Runden immer noch nicht, liegt das Problem oft früher: bei der Übertragung oder der Beschreibung.</p>`,
+steps:[
+["Runde 1: Beschreiben",()=>`${P(V({p:"Schreib einen Instagram-Text zur Eröffnung des Lesecafés in der Stadtbücherei Lindenau am Samstag, 14. November 2026, um 15 Uhr. Höchstens 600 Zeichen, drei Hashtags mit #Lindenau, keine Superlative.",u:"Erklär mir den Unterschied zwischen TCP und UDP mit einem Beispiel aus dem Alltag. Höchstens 150 Wörter.",k:"Schreib einen kurzen Text für unsere Website, warum ein Fassadenanstrich im Frühjahr sinnvoll ist. Höchstens 120 Wörter, per Sie, ohne Werbefloskeln."}))}`],
+["Runde 2: Beurteilen und gezielt nachsteuern",()=>`<p>Prüfe den Entwurf: Was passt, was nicht? Dann konkret nachsteuern, zum Beispiel:</p>${P(V({p:"Der zweite Satz ist zu werblich. Ersetze ihn durch eine Information zum Angebot. Nenne den Inklusionsbetrieb „Zuckerwerk“.",u:"Das Beispiel ist mir zu abstrakt. Nimm ein Beispiel mit Videostreaming und Dateidownload und erklär, warum Verluste dort unterschiedlich schlimm sind.",k:"Der Text ist mir zu allgemein. Nenne zwei konkrete Gründe: Temperatur beim Trocknen und Terminlage vor dem Sommer."}))}`],
+["Runde 3: Abschließen und festhalten",()=>`${P(`Fasse zusammen, was wir in den Runden geändert haben, und formuliere daraus eine Vorlage, die ich beim nächsten Mal direkt verwenden kann.`)}${TIP("Aus gelungenen Schleifen entstehen Vorlagen, später Skills oder Projekt-Anweisungen.")}`]],
+quiz:[{q:"Was ist die Beschreibung-Beurteilung-Schleife?",o:["Beschreiben, beurteilen und gezielt nachsteuern, bis das Ergebnis passt","So lange neu fragen, bis zufällig etwas Gutes kommt","Den Prompt immer länger machen"],a:0,e:"Gezielte Runden statt Zufall."},
+{q:"Welches Nachsteuern ist am hilfreichsten?",o:["„Mach es besser.“","„Kürzer, ohne Fachwörter, mit einem Alltagsbeispiel.“","„Nochmal.“"],a:1,e:"Konkret benennen, was sich ändern soll."},
+{q:"Nach drei Runden passt es immer noch nicht. Was tust du?",o:["Weiter probieren, irgendwann klappt es","Zurück zu Übertragung und Beschreibung: Aufgabe anders verteilen oder neu beschreiben","Das Ergebnis trotzdem verwenden"],a:1,e:"Oft liegt das Problem vor der Schleife."}]},
+
+{id:"k6",icon:"🛡️",title:"Gewissenhaftigkeit: Verantwortung übernehmen",min:25,badge:"🛡️",bname:"Verantwortung",widgets:["cls:dil"],
+brief:"Die KI schlägt vor, du entscheidest. Hier geht es um Verantwortung beim Erstellen, beim Offenlegen und beim Einsatz.",
+html:()=>`<div class="d4"><div><strong>Erstellung</strong>Welche Werkzeuge und Daten sind erlaubt? Was gehört nicht in einen Chat?</div><div><strong>Transparenz</strong>Wer muss wissen, dass KI beteiligt war? Kennzeichnung, wo sie nötig ist.</div><div><strong>Einsatz</strong>Was wird veröffentlicht, verschickt, ausgeführt? Du stehst für das Ergebnis ein.</div></div>
+${clsHTML("dil")}`,
+steps:[
+["Eigene Spielregeln formulieren",()=>`${P(`${WORLDS[st.world].ctx} Hilf mir, fünf persönliche Regeln für meinen KI-Einsatz zu formulieren: zu Daten, Kennzeichnung, Prüfung und Verantwortung. Kurz und konkret, je ein Satz.`)}`],
+["Eine Kennzeichnung festlegen",()=>`<p>Formuliere einen Satz, mit dem du KI-Unterstützung offenlegst, wo es nötig ist, zum Beispiel:</p>${P(V({p:"Dieser Text wurde mit KI-Unterstützung erstellt und von der Pressestelle geprüft.",u:"Teile dieses Codes wurden mit KI-Unterstützung erstellt und von mir getestet.",k:"Hinweis: Auf unserer Website beantwortet ein KI-Assistent Ihre Fragen. Verbindliche Angebote erstellen wir persönlich."}),"Text kopieren")}${TIP("Kennzeichnen heißt nicht, sich zu entschuldigen. Es schafft Vertrauen.")}`]],
+quiz:[{q:"Welche drei Bereiche gehören zur Gewissenhaftigkeit?",o:["Erstellung, Transparenz, Einsatz","Tempo, Länge, Format","Modell, Tarif, Gerät"],a:0,e:"Vom ersten Prompt bis zur Veröffentlichung."},
+{q:"Was bedeutet Transparenz?",o:["Alle Prompts öffentlich ins Internet stellen","Offenlegen, wo KI beteiligt war, gegenüber denen, die es wissen müssen","Nie KI verwenden"],a:1,e:"Angemessen offenlegen, wo es zählt."},
+{q:"Wer trägt die Verantwortung für einen veröffentlichten KI-gestützten Text?",o:["Der Anbieter der KI","Die KI selbst","Der Mensch bzw. die Organisation, die veröffentlicht"],a:2,e:"Die KI schlägt vor, der Mensch entscheidet."}]}
+];
+
+const BOSS=[
+{q:"Welche vier Kompetenzen bilden das 4D-Modell?",o:["Übertragung, Beschreibung, Beurteilung, Gewissenhaftigkeit","Planen, Schreiben, Lesen, Löschen","Chat, Projekt, Agent, Skill"],a:0,e:"Die vier Ds: Delegation, Description, Discernment, Diligence."},
+{q:"Du lässt dir von Claude ein Thema erklären und fragst nach. Welche Form der Zusammenarbeit ist das?",o:["Automation","Augmentation","Agency"],a:1,e:"Gemeinsames Denken im Dialog."},
+{q:"Was gehört zuerst geklärt, bevor du einen Prompt schreibst?",o:["Welche Schriftart die Antwort hat","Das Ziel und ob KI hier überhaupt hilft","Wie viele Wörter der Prompt hat"],a:1,e:"Problembewusstsein steht am Anfang."},
+{q:"„Antworte knapp und widersprich mir, wenn ich falsch liege.“ Welche Ebene der Beschreibung ist das?",o:["Ergebnis","Vorgehen","Verhalten"],a:2,e:"Es beschreibt das Verhalten der KI."},
+{q:"Die KI nennt eine konkrete Zahl, die nicht in deinen Unterlagen steht. Was tust du?",o:["Übernehmen, sie klingt plausibel","Nachprüfen oder streichen","Die Zahl runden"],a:1,e:"Unbelegte Zahlen sind ein typisches Warnsignal."},
+{q:"Was ist der beste Weg nachzusteuern?",o:["Konkret sagen, was sich ändern soll","Denselben Prompt noch einmal senden","Das Modell wechseln"],a:0,e:"Gezielte Hinweise führen schneller zum Ziel."},
+{q:"Ein KI-Bild zeigt eine reale Person bei einem Ereignis, das nie stattfand. Wie bewertest du den Einsatz?",o:["In Ordnung, wenn das Bild gut aussieht","Nur mit Kennzeichnung","Nicht in Ordnung"],a:2,e:"Täuschende Darstellungen realer Personen sind tabu."},
+{q:"Wer entscheidet am Ende über die Veröffentlichung?",o:["Die KI","Der Mensch","Der Anbieter"],a:1,e:"KI schlägt vor, der Mensch gibt frei."}];
+
+/* ---------- Zustand ---------- */
+const KEY="werkstatt-kompetenz-v1";
+let st={xp:0,steps:{},quiz:{},done:{},cards:{},cls:{},spot:{},wdone:{},boss:null,open:"k1",world:"p",bld:{}};
+try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&typeof s.xp==="number")st=Object.assign(st,s);}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}};
+const MAXXP=(()=>{let x=0;M.forEach(m=>{x+=m.steps.length*10+m.quiz.length*20+50;m.widgets.forEach(w=>{if(w==="cards")x+=4*5;else if(w==="spot")x+=30;else x+=6*5;})});x+=BOSS.length*20+100;return x})();
+const LEVELS=[[0,"Lehrling"],[Math.round(MAXXP*.35),"Geselle"],[Math.round(MAXXP*.75),"Werkstattmeister"]];
+
+function addXP(n,msg){st.xp+=n;save();hud();toast(`+${n} Punkte · ${msg}`);}
+function toast(t){const el=document.getElementById("toast");el.textContent=t;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),2200);}
+function level(){let i=0;LEVELS.forEach((l,k)=>{if(st.xp>=l[0])i=k});return i}
+function hud(){
+ const i=level();document.getElementById("lvlNum").textContent=i+1;document.getElementById("lvlName").textContent=LEVELS[i][1];
+ document.getElementById("lvlNext").textContent=i<LEVELS.length-1?`noch ${LEVELS[i+1][0]-st.xp} Punkte bis ${LEVELS[i+1][1]}`:"Höchste Stufe erreicht";
+ document.getElementById("xpBar").style.width=Math.min(100,st.xp/MAXXP*100)+"%";
+ document.getElementById("xpTxt").textContent=`${st.xp} / ${MAXXP} Punkte`;
+ document.getElementById("badges").innerHTML=M.map(m=>`<span class="bdg ${st.done[m.id]?"on":""}" title="${m.bname}${st.done[m.id]?"":" (noch offen)"}">${m.badge}</span>`).join("")+`<span class="bdg ${st.boss?"on":""}" title="KI-Kompetenz-Ausweis">🏆</span>`;
+}
+const unlocked=k=>k===0||st.done[M[k-1].id];
+
+/* ---------- Bausteine ---------- */
+function clsHTML(id){const c=CLS[id],items=V(c.items),key=id+"-"+st.world,ans=st.cls[key]||{};
+ return `<div class="cls" data-cls="${id}"><h3>${c.title} <span class="x" style="font-family:var(--f-mono);font-size:.74rem;color:var(--xp)">je +5 Punkte</span></h3>${items.map((it,i)=>{const a=ans[i];
+  return `<div class="cls-item ${a===undefined?"":(a===it[1]?"ok":"no")}" data-i="${i}"><p>${it[0]}</p><div class="cls-btns">${c.cats.map((cat,ci)=>`<button type="button" class="cbtn2 ${a!==undefined?(ci===it[1]?"right":(ci===a?"wrong":"")):""}" data-c="${ci}" ${a!==undefined?"disabled":""}>${cat}</button>`).join("")}</div><p class="fb" ${a===undefined?"hidden":""} style="font-weight:400">${a===undefined?"":(a===it[1]?"Richtig. ":"Eher: "+c.cats[it[1]]+". ")+it[2]}</p></div>`}).join("")}</div>`;}
+function spotHTML(){const sp=V(SPOT),key="spot-"+st.world,s=st.spot[key]||{flags:{},checked:false};
+ return `<div class="spot"><h3>Fehlersuche <span class="x" style="font-family:var(--f-mono);font-size:.74rem;color:var(--xp)">+30 Punkte</span></h3><p>${sp.intro}</p><div class="sents">${sp.s.map((x,i)=>{const f=!!s.flags[i];let cl=f?"flag":"";if(s.checked){cl=x[1]?(f?"hit":"miss"):(f?"miss":"")}
+  return `<button type="button" class="sent ${cl}" data-i="${i}" ${s.checked&&s.ok?"disabled":""}>${x[0]}${s.checked&&x[1]?`<small>${f?"Gefunden: ":"Übersehen: "}${x[2]}</small>`:""}${s.checked&&!x[1]&&f?"<small>Dieser Satz ist in Ordnung.</small>":""}</button>`}).join("")}</div>
+  <div class="mfoot"><span class="need" id="spotNeed">${s.checked?(s.ok?"Alle drei gefunden. Stark!":"Noch nicht ganz. Prüfe die markierten Sätze und versuche es erneut."):"Antippen markiert einen Satz als fehlerhaft."}</span><button type="button" class="btn primary" id="spotBtn" ${s.checked&&s.ok?"disabled":""}>${s.checked&&!s.ok?"Neu versuchen":"Prüfen"}</button></div></div>`;}
+function builderHTML(){const b=Object.assign({},V(BUILD),st.bld[st.world]||{});
+ return `<div class="builder"><h3>Prompt-Baukasten</h3><p class="why">Die Felder sind mit einem Beispiel aus deiner Welt vorbelegt. Ändere sie nach Belieben.</p>
+ <label>Aufgabe<textarea data-b="task">${esc(b.task)}</textarea></label>
+ <label>Ergebnis <small>Was soll herauskommen?</small><textarea data-b="erg">${esc(b.erg)}</textarea></label>
+ <label>Vorgehen <small>Wie soll die KI arbeiten?</small><textarea data-b="vor">${esc(b.vor)}</textarea></label>
+ <label>Verhalten <small>Wie soll sich die KI verhalten?</small><textarea data-b="ver">${esc(b.ver)}</textarea></label>
+ ${P(esc(buildPrompt(b)),"Fertigen Prompt kopieren")}</div>`;}
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+function buildPrompt(b){return `${b.task}\n\nErgebnis: ${b.erg}\nVorgehen: ${b.vor}\nVerhalten: ${b.ver}`;}
+
+function quizHTML(qs,pref){return `<div class="quiz"><h3>Kontrollfragen <span class="x" style="font-family:var(--f-mono);font-size:.74rem;color:var(--xp)">je +20 Punkte</span></h3>${qs.map((q,qi)=>{const key=pref+"-"+qi,ans=st.quiz[key];
+ return `<div class="q" data-key="${key}" data-a="${q.a}"><p>${qi+1}. ${q.q}</p><div>${q.o.map((o,oi)=>`<button type="button" class="opt ${ans!==undefined?(oi===q.a?"right":(oi===ans?"wrong":"")):""}" data-o="${oi}" ${ans!==undefined?"disabled":""} style="margin-bottom:6px">${o}</button>`).join("")}</div><p class="fb" ${ans===undefined?"hidden":""}>${ans===undefined?"":(ans===q.a?"Richtig. ":"Nicht ganz. ")+q.e}</p></div>`}).join("")}</div>`;}
+
+function widgetDone(m,w){if(w==="cards")return Object.keys(st.cards).length>=4;if(w==="spot")return !!st.wdone.spot;return !!st.wdone[w];}
+function missionReady(m){return m.steps.every((_,i)=>st.steps[m.id+"s"+i])&&m.quiz.every((_,i)=>st.quiz[m.id+"-"+i]!==undefined)&&m.widgets.every(w=>widgetDone(m,w));}
+
+/* ---------- Rendern ---------- */
+function renderWorld(){
+ document.getElementById("worldBtns").innerHTML=Object.entries(WORLDS).map(([k,w])=>`<button type="button" class="wbtn" data-world="${k}" aria-pressed="${st.world===k}">${w.name}</button>`).join(" ");
+ document.getElementById("worldInfo").textContent=WORLDS[st.world].info+" Du kannst die Welt jederzeit wechseln, deine Punkte bleiben.";
+ document.querySelectorAll("[data-world]").forEach(b=>b.onclick=()=>{st.world=b.dataset.world;save();renderWorld();render();toast("Beispiele gewechselt: "+WORLDS[st.world].name)});
+}
+function render(){
+ const pm=document.getElementById("pathMap");
+ const cur=M.findIndex((m,k)=>unlocked(k)&&!st.done[m.id]);
+ pm.innerHTML=M.map((m,k)=>`${k?'<span class="sep" aria-hidden="true"></span>':""}<button type="button" class="node ${st.done[m.id]?"done":(k===cur?"current":(!unlocked(k)?"locked":""))}" data-goto="${m.id}"><span class="n">${st.done[m.id]?"✓":(unlocked(k)?k+1:"🔒")}</span>${m.title.split(":")[0]}</button>`).join("")+`<span class="sep" aria-hidden="true"></span><button type="button" class="node ${st.boss?"done":(M.every(m=>st.done[m.id])?"current":"locked")}" data-goto="boss"><span class="n">${st.boss?"✓":"🏆"}</span>Abschlussprüfung</button>`;
+ document.getElementById("missions").innerHTML=M.map((m,k)=>{const open=st.open===m.id,lock=!unlocked(k);
+  return `<section class="mission ${st.done[m.id]?"done":""} ${lock?"locked":""}" id="${m.id}">
+  <button type="button" class="mhead" data-toggle="${m.id}" aria-expanded="${open}"><span class="micon">${lock?"🔒":m.icon}</span><span style="min-width:0"><span class="mtitle">Mission ${k+1}: ${m.title}</span><span class="mmeta"><span>ca. ${m.min} Min</span><span>${m.steps.length} Schritte · ${m.quiz.length} Fragen</span><span>Abzeichen ${m.badge} ${m.bname}</span></span></span><span class="mxp">${st.done[m.id]?"✓ erledigt":"+50 Punkte Bonus"}</span></button>
+  ${open?`<div class="mbody">${lock?`<p class="lockmsg">🔒 Diese Mission öffnet sich, sobald du Mission ${k} abgeschlossen hast. Lesen darfst du trotzdem schon:</p>`:""}
+   <div class="briefing"><b>Einsatzbefehl</b><p>${m.brief}</p></div>
+   ${m.html()}
+   <ol class="steps">${m.steps.map((s,i)=>S(m.id+"s"+i,s[0],s[1]())).join("")}</ol>
+   ${quizHTML(m.quiz,m.id)}
+   <div class="mfoot"><span class="need">Alle Übungen lösen, Schritte abhaken und die Fragen beantworten.</span><button type="button" class="btn" data-repeat="${m.id}">↺ Mission wiederholen</button>
+   <button type="button" class="btn primary" data-finish="${m.id}" ${st.done[m.id]||lock||!missionReady(m)?"disabled":""}>${st.done[m.id]?"✓ Mission erledigt":"Mission abschließen +50 Punkte"}</button></div>
+  </div>`:""}</section>`}).join("")+bossHTML();
+ bind();hud();
+}
+function bossHTML(){
+ const ready=M.every(m=>st.done[m.id]),open=st.open==="boss";
+ return `<section class="mission ${st.boss?"done":""} ${ready?"":"locked"}" id="boss">
+ <button type="button" class="mhead" data-toggle="boss" aria-expanded="${open}"><span class="micon">${ready?"🏆":"🔒"}</span><span><span class="mtitle">Abschlussprüfung: KI-Kompetenz-Ausweis</span><span class="mmeta"><span>${BOSS.length} Fragen</span><span>mindestens 6 richtig</span></span></span><span class="mxp">${st.boss?"✓ bestanden":"+100 Punkte"}</span></button>
+ ${open?`<div class="mbody">${!ready?`<p class="lockmsg">🔒 Die Prüfung öffnet sich nach allen sechs Missionen.</p>`:
+  st.boss?certHTML()+`<div class="mfoot"><span></span><button type="button" class="btn" id="bossAgain">↺ Prüfung wiederholen</button></div>`:`${quizHTML(BOSS,"boss")}<div class="mfoot"><span class="need" id="bossNeed"></span><button type="button" class="btn primary" id="bossBtn">Prüfung auswerten</button></div>`}</div>`:""}</section>`;
+}
+function certHTML(){const d=new Date(st.boss).toLocaleDateString("de-DE",{day:"numeric",month:"long",year:"numeric"});
+ return `<div class="cert"><div class="seal">🏆</div><p class="eyebrow" style="color:var(--xp)">KI-Kompetenz-Ausweis</p><h2>Kompetenz-Zweig bestanden</h2><p style="margin:0 auto">Du kannst Aufgaben sinnvoll an KI übertragen, klar beschreiben, Ergebnisse kritisch beurteilen und gewissenhaft Verantwortung übernehmen.</p><p class="why" style="margin:0 auto">Bestanden am ${d} · ${st.xp} Punkte · Stufe ${LEVELS[level()][1]} · Welt: ${WORLDS[st.world].name}</p></div>`;}
+
+/* ---------- Interaktion ---------- */
+function bind(){
+ document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{const id=b.dataset.toggle;st.open=st.open===id?"":id;save();render();const el=document.getElementById(id);if(el&&st.open)el.scrollIntoView({block:"start",behavior:"smooth"});});
+ document.querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>{st.open=b.dataset.goto;save();render();document.getElementById(b.dataset.goto).scrollIntoView({block:"start",behavior:"smooth"});});
+ document.querySelectorAll(".steps input").forEach(cb=>{const id=cb.id;cb.checked=!!st.steps[id];cb.closest("li").classList.toggle("checked",cb.checked);
+  cb.onchange=()=>{const was=!!st.steps[id];st.steps[id]=cb.checked;cb.closest("li").classList.toggle("checked",cb.checked);
+   if(cb.checked&&!was&&!st["xs_"+id]){st["xs_"+id]=1;addXP(10,"Schritt erledigt")}else save();refreshFinish();};});
+ document.querySelectorAll(".q").forEach(q=>q.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
+  const key=q.dataset.key,a=+q.dataset.a,o=+b.dataset.o;if(st.quiz[key]!==undefined)return;st.quiz[key]=o;
+  q.querySelectorAll(".opt").forEach(x=>{x.disabled=true;if(+x.dataset.o===a)x.classList.add("right")});if(o!==a)b.classList.add("wrong");
+  const all=[...M.flatMap(m=>m.quiz.map((qq,i)=>[m.id+"-"+i,qq])),...BOSS.map((qq,i)=>["boss-"+i,qq])];const qq=all.find(z=>z[0]===key)[1];
+  const fb=q.querySelector(".fb");fb.hidden=false;fb.textContent=(o===a?"Richtig. ":"Nicht ganz. ")+qq.e;
+  if(o===a&&!key.startsWith("boss")&&!st["xq_"+key]){st["xq_"+key]=1;addXP(20,"richtige Antwort")}else save();refreshFinish();}));
+ document.querySelectorAll(".flip").forEach(c=>{const i=c.dataset.card;if(st.cards[i])c.classList.add("on");
+  c.onclick=()=>{c.classList.toggle("on");if(!st.cards[i]){st.cards[i]=1;if(!st["xc_"+i]){st["xc_"+i]=1;addXP(5,"Karte entdeckt")}else save()}refreshFinish();};});
+ document.querySelectorAll(".cls").forEach(box=>{const id=box.dataset.cls,c=CLS[id],items=V(c.items),key=id+"-"+st.world;
+  box.querySelectorAll(".cls-item").forEach(row=>{const i=+row.dataset.i;row.querySelectorAll(".cbtn2").forEach(b=>b.onclick=()=>{
+   const ans=st.cls[key]||(st.cls[key]={});if(ans[i]!==undefined)return;const ch=+b.dataset.c;ans[i]=ch;const it=items[i];
+   row.querySelectorAll(".cbtn2").forEach(x=>{x.disabled=true;if(+x.dataset.c===it[1])x.classList.add("right")});if(ch!==it[1])b.classList.add("wrong");
+   row.classList.add(ch===it[1]?"ok":"no");const fb=row.querySelector(".fb");fb.hidden=false;fb.textContent=(ch===it[1]?"Richtig. ":"Eher: "+c.cats[it[1]]+". ")+it[2];
+   const xk="xk_"+key+"_"+i;if(Object.keys(ans).length===items.length){st.wdone["cls:"+id]=1}
+   if(ch===it[1]&&!st[xk]){st[xk]=1;addXP(5,"richtig zugeordnet")}else save();refreshFinish();});});});
+ const sb=document.getElementById("spotBtn");if(sb){const sp=V(SPOT),key="spot-"+st.world;
+  document.querySelectorAll(".sent").forEach(btn=>btn.onclick=()=>{const s=st.spot[key]||(st.spot[key]={flags:{},checked:false});if(s.checked)return;const i=btn.dataset.i;s.flags[i]=!s.flags[i];btn.classList.toggle("flag",!!s.flags[i]);save();});
+  sb.onclick=()=>{const s=st.spot[key]||(st.spot[key]={flags:{},checked:false});
+   if(s.checked&&!s.ok){s.checked=false;s.flags={};save();render();return}
+   const ok=sp.s.every((x,i)=>!!x[1]===!!s.flags[i]);s.checked=true;s.ok=ok;
+   if(ok){st.wdone.spot=1;if(!st["xspot_"+st.world]&&!st.xspot){st.xspot=1;addXP(30,"Fehlersuche gelöst")}else save()}else save();render();};}
+ document.querySelectorAll(".builder textarea").forEach(t=>t.oninput=()=>{const w=st.bld[st.world]||(st.bld[st.world]={});w[t.dataset.b]=t.value;save();
+  const b=Object.assign({},V(BUILD),w);t.closest(".builder").querySelector("pre.copy").textContent=buildPrompt(b);});
+ document.querySelectorAll("[data-repeat]").forEach(b=>b.onclick=()=>repeatMission(b.dataset.repeat));
+ document.querySelectorAll("[data-finish]").forEach(b=>b.onclick=()=>{const id=b.dataset.finish;if(st.done[id])return;st.done[id]=1;
+  const k=M.findIndex(m=>m.id===id);st.open=k<M.length-1?M[k+1].id:"boss";
+  if(!st["xf_"+id]){st["xf_"+id]=1;addXP(50,`Abzeichen ${M[k].badge} ${M[k].bname}`)}else save();render();document.getElementById(st.open).scrollIntoView({block:"start",behavior:"smooth"});});
+ const ba=document.getElementById("bossAgain");if(ba)ba.onclick=()=>{BOSS.forEach((q,i)=>delete st.quiz["boss-"+i]);st.boss=null;save();render();toast("Prüfung zurückgesetzt. Punkte gibt es nur beim ersten Bestehen.")};
+ const bb=document.getElementById("bossBtn");if(bb)bb.onclick=()=>{const ans=BOSS.map((q,i)=>st.quiz["boss-"+i]);
+  if(ans.some(a=>a===undefined)){document.getElementById("bossNeed").textContent=`Bitte erst alle ${BOSS.length} Fragen beantworten.`;return}
+  const right=ans.filter((a,i)=>a===BOSS[i].a).length;
+  if(right>=6){st.boss=Date.now();if(!st.bossXp){st.bossXp=1;addXP(right*20+100,"KI-Kompetenz-Ausweis 🏆")}else{save();toast(`Bestanden: ${right} von ${BOSS.length} richtig 🏆`)}render()}
+  else{document.getElementById("bossNeed").textContent=`${right} von ${BOSS.length} richtig. Lies die Erklärungen und versuche es noch einmal.`;BOSS.forEach((q,i)=>delete st.quiz["boss-"+i]);save();setTimeout(render,2200)}};
+ document.querySelectorAll(".prompt .cbtn").forEach(btn=>btn.onclick=()=>{const pre=btn.previousElementSibling,old=btn.textContent;
+  const sel=()=>{const r=document.createRange();r.selectNodeContents(pre);const s=getSelection();s.removeAllRanges();s.addRange(r);btn.textContent="Markiert – Strg+C drücken";};
+  try{navigator.clipboard.writeText(pre.textContent).then(()=>{btn.textContent="Kopiert ✓";setTimeout(()=>btn.textContent=old,1500)},sel)}catch(e){sel()}});
+}
+function repeatMission(id){const m=M.find(x=>x.id===id);
+ m.steps.forEach((_,i)=>delete st.steps[id+"s"+i]);m.quiz.forEach((_,i)=>delete st.quiz[id+"-"+i]);
+ m.widgets.forEach(w=>{if(w==="cards")st.cards={};else if(w==="spot"){Object.keys(st.spot).forEach(k=>delete st.spot[k]);delete st.wdone.spot}else{const c=w.split(":")[1];Object.keys(st.cls).forEach(k=>{if(k.startsWith(c+"-"))delete st.cls[k]});delete st.wdone[w]}});
+ st.open=id;save();render();document.getElementById(id).scrollIntoView({block:"start",behavior:"smooth"});toast("Mission zurückgesetzt. Deine Punkte bleiben.");}
+function refreshFinish(){document.querySelectorAll("[data-finish]").forEach(b=>{const m=M.find(x=>x.id===b.dataset.finish);const k=M.indexOf(m);b.disabled=!!st.done[m.id]||!unlocked(k)||!missionReady(m);});}
+document.getElementById("reset").onclick=()=>{const b=document.getElementById("reset");if(b.dataset.c){st={xp:0,steps:{},quiz:{},done:{},cards:{},cls:{},spot:{},wdone:{},boss:null,open:"k1",world:st.world,bld:{}};save();b.textContent="Neu starten";delete b.dataset.c;render();}else{b.dataset.c=1;b.textContent="Wirklich? Nochmal klicken";setTimeout(()=>{b.textContent="Neu starten";delete b.dataset.c},3000)}};
+renderWorld();render();
+</script>
+</body>
+</html>
